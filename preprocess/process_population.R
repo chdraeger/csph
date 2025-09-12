@@ -38,7 +38,7 @@ for(ssp in c("SSP1", "SSP2", "SSP3", "SSP4", "SSP5")){
     
     r <- raster(paste0("~/Data/population_projection/data_raw/population_projection_1km/", ssp, "/", ssp, "_", year, ".tif" ))
     
-    # extract shape in Madagascar
+    # extract shape
     shed <- exact_extract(r, shp_valid, "sum")
     res <- rbind(
       res,
