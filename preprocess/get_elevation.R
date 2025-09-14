@@ -66,7 +66,7 @@ write.csv(df_ordered, "~/Data/csph/elevation/elevation_shed_era_centroid_Madagas
 # currently used: centroids of ERA5 cells are just assigned to a healthshed. correct: area-averaged
 
 
-# (2) correct
+# (2) ERA5- area-averaged (correct)
 #######################
 shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
 # shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
@@ -93,7 +93,7 @@ df_ordered <- df
 write.csv(df_ordered, "~/Data/csph/elevation/elevation_shed_era_area_avg_corr_Madagascar.csv", row.names = FALSE)
 
 
-# (3) currently used
+# (3) currently used (not included)
 ########################
 
 r_terra <- rast(r)
@@ -122,7 +122,44 @@ means$mean_val <- means$mean_val / 9.81
 
 
 
-# (4) Get elevation per healthshed - SRTM mean
+# (4) ERA5: population-averaged
+#######################
+# shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
+shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
+
+# pop <- rast("/home/christina/Data/csph/population/mdg_pop_2020_CN_100m_R2025A_v1.tif")
+pop <- rast("/home/christina/Data/csph/population/npl_pop_2020_CN_100m_R2025A_v1.tif")
+
+shp_valid <- shp[!st_is_empty(shp), ]
+
+# read ERA5
+file <- paste0("~/Data/csph/ERA5/Nepal/era5_sl_geopotential.grib")
+r <- rast(file)
+r <- project(r, crs(shp_valid))
+
+# population
+pop[is.na(pop)] <- 0
+
+# Resample population raster to match elevation raster
+pop_resampled <- terra::resample(pop, r, method = "bilinear")  # much faster than raster package
+pop_resampled[is.na(pop_resampled)] <- 0  # Worldpop data: replace NANs with 0 (no population)
+
+# extract shape
+shed <- exact_extract(r, shp_valid, "weighted_mean", weights = pop_resampled)
+
+# Convert extracted values into a data frame
+df <- data.frame(
+  fid = shp_valid$fid,  #  fid fs_uid
+  elevation_era_pop_weighted = round(as.numeric(shed) / 9.80665, 2)
+)
+
+df_ordered <- df[order(df$fid), ]
+# df_ordered <- df
+
+write.csv(df_ordered, "~/Data/csph/elevation/elevation_shed_era_pop_weighted_Nepal.csv", row.names = FALSE)
+
+
+# (5) Get elevation per healthshed - SRTM mean
 ##############################################################################################################
 
 shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
@@ -144,7 +181,7 @@ df_ordered <- df[order(df$fs_uid), ]
 write.csv(df_ordered, "~/Data/csph/elevation/elevation_shed_srtm_Madagascar.csv", row.names = FALSE)
 
 
-# (5) Get elevation - SRTM WEIGHTED BY POPULATION per healthshed
+# (6) Get elevation - SRTM WEIGHTED BY POPULATION per healthshed
 ##############################################################################################################
 
 # shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
@@ -177,7 +214,8 @@ write.csv(df_ordered, "~/Data/csph/elevation/elevation_shed_pop_Nepal.csv", row.
 
 
 ###### merge into 1 file
-country <- "Madagascar"
+country <- "Nepal"
+
 era <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_era_", country, ".csv"))
 pop <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_pop_", country, ".csv"))
 srtm <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_srtm_", country, ".csv"))
@@ -194,3 +232,9 @@ era_mean <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_era_area_avg_c
 all <- left_join(all, era_mean, by = c("fs_uid"))
 write.csv(all, paste0("~/Data/csph/elevation/elevation_shed_", country, ".csv"), row.names = FALSE)
 
+########
+all <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_", country, ".csv"))
+new <- read.csv(paste0("~/Data/csph/elevation/elevation_shed_era_pop_weighted_", country, ".csv"))
+
+all <- left_join(all, new, by = c("fid"))
+write.csv(all, paste0("~/Data/csph/elevation/elevation_shed_", country, ".csv"))

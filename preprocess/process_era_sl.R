@@ -7,22 +7,26 @@ library(dplyr)
 library(data.table)
 
 
-#####
-country <- "Nepal"
-id_name <- "fid"  # fid, fs_uid
+#########################
+country <- "Madagascar"
+id_name <- "fs_uid"  # fid, fs_uid
 year <- 2024
-variable <- "2m_temperature"
+variable <- "total_precipitation"
+round_digits <- 4
+#########################
 
-pop <- rast("/home/christina/Data/csph/population/npl_pop_2020_CN_100m_R2025A_v1.tif")   ##### CHANGE
+options(scipen=999)
 
-# shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
-shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
-#####
+# read population
+pop <- rast("/home/christina/Data/csph/population/mdg_pop_2020_CN_100m_R2025A_v1.tif")   ##### CHANGE
 
+# healthshed shapes
+shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
+# shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
 shp_valid <- shp[!st_is_empty(shp), ]
 
 # read ERA5
-file <- paste0("~/Data/csph/ERA5/", country, "/era5_sl_", variable, "_", year, ".grib")
+file <- paste0("~/Data/csph/ERA5/", country, "/orig/era5_sl_", variable, "_", year, ".grib")
 
 r <- rast(file)
 times <- time(r)
@@ -55,13 +59,36 @@ agg <- agg %>%
   group_by(across(all_of(id_name)), day) %>%
   summarise(mean = mean(value, na.rm = TRUE),
             max = max(value, na.rm = TRUE),
-            min = min(value, na.rm = TRUE)
+            min = min(value, na.rm = TRUE),
+            sum = sum(value, na.rm = TRUE)
             )
 
-agg <- as.data.frame(agg)
-agg$mean <- round(agg$mean, 2)
-agg$min <- round(agg$min, 2)
-agg$max <- round(agg$max, 2)
+# fill gaps
+if(country == "Nepal"){
+  # fid 734 is at the border and has only missing values. Take values from neighbor
+  # centr <- read.csv("/home/christina/Data/csph/shape_files/centroids_healthsheds_Nepal.csv")
+  # target <- centr[centr$fid == 734, ]
+  # distances <- sqrt((centr$lon - target$lon)^2 + (centr$lat - target$lat)^2)
+  # distances[centr$fid == 734] <- NA
+  # closest_idx <- which.min(distances)
+  # closest_point <- centr[closest_idx, ]  # 731
 
+  # For each day of fid 734, find the corresponding day in 731
+  for(d in agg$day[agg$fid == 734]){
+    # get values from fid 731 for this day
+    agg[agg$fid == 734 & agg$day == d, c("mean", "min", "max", "sum")] <-
+      agg[agg$fid == 731 & agg$day == d, c("mean", "min", "max", "sum")]
+  }
+  
+}
+
+# aggregate
+agg <- as.data.frame(agg)
+agg$mean <- round(agg$mean, round_digits)
+agg$min <- round(agg$min, round_digits)
+agg$max <- round(agg$max, round_digits)
+agg$sum <- round(agg$sum, round_digits)
+
+# save
 write.csv(agg, paste0("/home/christina/Data/csph/ERA5/", country, "/era5_sl_", variable, "_", year, "_pop_weighted.csv"),
           row.names = FALSE)
