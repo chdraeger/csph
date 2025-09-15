@@ -6,23 +6,25 @@ library(terra)
 library(dplyr)
 library(data.table)
 
-
 #########################
-country <- "Madagascar"
-id_name <- "fs_uid"  # fid, fs_uid
+country <- "Nepal"
+id_name <- "fid"  # fid, fs_uid
 year <- 2024
-variable <- "total_precipitation"
+variable <- "total_precipitation"  # total_precipitation, volumetric_soil_water_layer_1
 round_digits <- 4
-#########################
-
-options(scipen=999)
 
 # read population
-pop <- rast("/home/christina/Data/csph/population/mdg_pop_2020_CN_100m_R2025A_v1.tif")   ##### CHANGE
+pop <- rast(paste0("/home/christina/Data/csph/population/npl_pop_", year, "_CN_100m_R2025A_v1.tif"))   ##### CHANGE
 
 # healthshed shapes
-shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")
-# shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
+# shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")   ##### CHANGE
+shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
+
+#########################
+
+
+
+options(scipen=999)
 shp_valid <- shp[!st_is_empty(shp), ]
 
 # read ERA5
