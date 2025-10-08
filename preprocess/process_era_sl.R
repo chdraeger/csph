@@ -7,18 +7,20 @@ library(dplyr)
 library(data.table)
 
 #########################
-country <- "Nepal"
-id_name <- "fid"  # fid, fs_uid
+country <- "Madagascar"
+id_name <- "fs_uid"  # fid, fs_uid
 year <- 2024
 variable <- "total_precipitation"  # total_precipitation, volumetric_soil_water_layer_1
 round_digits <- 4
+pop_dataset <- "landscan"  # worldpop, landscan
 
 # read population
-pop <- rast(paste0("/home/christina/Data/csph/population/npl_pop_", year, "_CN_100m_R2025A_v1.tif"))   ##### CHANGE
+# pop <- rast(paste0("/home/christina/Data/csph/population/", pop_dataset, "/npl_pop_", year, "_CN_100m_R2025A_v1.tif"))   ##### CHANGE    Worldpop
+pop <- rast(paste0("/home/christina/Data/csph/population/", pop_dataset, "/landscan-global-2023.tif"))   ##### CHANGE   Landscan
 
 # healthshed shapes
-# shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")   ##### CHANGE
-shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
+shp <- read_sf("~/Data/csph/shape_files/Madagascar_healthsheds2022/healthsheds2022.shp")   ##### CHANGE
+# shp <- read_sf("~/Data/csph/shape_files/Nepal_healthsheds2024/NepalLocalUnits0.shp")
 
 #########################
 
@@ -92,5 +94,6 @@ agg$max <- round(agg$max, round_digits)
 agg$sum <- round(agg$sum, round_digits)
 
 # save
-write.csv(agg, paste0("/home/christina/Data/csph/ERA5/", country, "/era5_sl_", variable, "_", year, "_pop_weighted.csv"),
+write.csv(agg,
+          paste0("/home/christina/Data/csph/ERA5/", country, "/era5_sl_", variable, "_", year, "_pop_weighted_", pop_dataset, ".csv"),
           row.names = FALSE)
