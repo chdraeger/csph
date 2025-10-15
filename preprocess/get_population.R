@@ -47,6 +47,13 @@ res_wide <- res |>
 write.csv(res_wide, "~/Data/csph/population/shed_worldpop1km.csv", row.names = FALSE)
 
 
+# # GHS-Pop
+# #===============================================
+# pop <- read_sf(paste0("~/Data/csph/population/ghspop/", year, "/GHSL2_0_MWD_L1_tile_schema_land.shp" )) # in longlat
+# pop <- st_transform(pop, crs = 4326)
+
+
+
 # Get data frame from all population sources
 #===========================================================================================
 
@@ -141,4 +148,151 @@ ggplot(res[res$fs_uid == "dZETRPZhGJP",]) +
   labs(color = "Dataset", title = "Anjozorobe") +
   theme_bw() +
   scale_color_manual(values = cols)
+
+
+# get smoothed percentage changes
+#================================================================================================
+res_change <- res %>%
+  group_by(fs_uid, dataset) %>%
+  arrange(year, .by_group = TRUE) %>%
+  mutate(
+    change = (value - lag(value)) / lag(value)
+  ) %>%
+  filter(!is.na(change)) %>%
+  ungroup()
+
+# mean(res_change[res_change$dataset == "globpop",]$change)
+
+
+a <- res_change[res_change$fs_uid == "As7NgbiFb4U" & res_change$dataset == "worldpop1km",]
+sm <- loess(change ~ year, data = a, span = 5)
+
+# plot(a$year, a$change * 100, type = "l", col = "grey60", lwd = 2, main = c("Amparafaravola"))
+# lines(a$year, predict(sm), col = "red", lwd = 3)
+# 
+# sp <- smooth.spline(a$year, a$change, spar = 0.6)
+# lines(sp, col = "blue", lwd = 3)
+# predict(sp, a$year)$y
+
+
+ggplot(a, aes(x = year, y = change * 100)) +
+  geom_line(aes(color = "Raw"), linewidth = 1) +
+  geom_smooth(aes(color = "Smoothed"), method = "loess", span =5, se = FALSE, linewidth = 1.2) +
+  scale_color_manual(
+    name = "Type",
+    values = c("Raw" = "grey60", "Smoothed" = "red")
+  ) +
+  labs(
+    title = "Amparafaravola",
+    x = "Year",
+    y = "Change (%)"
+  ) +
+  theme_bw() +
+  scale_x_continuous(
+    breaks = seq(2010, 2024, by = 2)
+  ) +
+  ylim(-5, 5)
+
+
+
+
+
+
+
+# Only use positive values
+a_sel <- a
+a_sel <- a_sel[a_sel$change > 0, ]  # only use positive values
+a_sel <- a_sel[a_sel$change < 0.05, ]  # cap at 5%
+
+# Smooth
+sp <- smooth.spline(a_sel$year, a_sel$change, spar = 0.6)
+sm <- loess(a_sel$change ~ a_sel$year, span = 5) 
+
+pred <- predict(sp, 2010:2024)$y
+
+# Plot
+lines(a_pos$year, pred, col = "orange", lwd = 3)
+
+
+# Bias corrected counts
+#==========================================================
+
+res <- res[res$dataset %in% c("worldpop100m", "official"),]
+res <- res[res$year == 2022,]
+
+res <- res %>%
+  pivot_wider(names_from = dataset, values_from = value) %>%
+  mutate(factor = worldpop100m / official)
+
+write.csv(res, "~/Data/csph/population/shed_worldpop100m_bias.csv", row.names = FALSE)
+
+
+# Plot mean healthshed growth rate
+#==========================================================
+agg <- res_change %>% group_by(fs_uid, dataset) %>%
+  summarize(change = mean(change))
+agg <- agg[agg$dataset == "worldpop100m",]
+agg$change <- agg$change * 100
+
+shp_new <- left_join(shp, agg, by = c("fs_uid"))
+
+
+# Plot the shapefile
+ggplot(shp_new) +
+  geom_sf(aes(fill = change), color = NA) +  # NA removes polygon borders
+  scale_fill_viridis_c(option = "plasma", name = "Growth rate (%)") +  # Nice color scale
+  theme_minimal() +
+  labs(title = "Mean population growth in WorldPop (2015-2024)") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+
+
+# Get bias-corrected time series
+#===========================================================
+
+bias <- read.csv("~/Data/csph/population/shed_worldpop100m_bias.csv")
+
+final <- res[res$dataset == "worldpop100m",]
+final <- left_join(final, bias[, c(1,5)], by = c("fs_uid"))
+final$pop_corr <- final$value / final$factor 
+final$factor <- final$value <- NULL
+final$dataset <- "worldpop100m_corrected"
+colnames(final)[4] <- "value"
+
+agg <- rbind(res, final)
+
+
+
+
+# plot
+#===========================================================================================
+agg$dataset <- factor(agg$dataset, levels = c("official", "globpop", "landscan", "worldpop100m", "worldpop100m_corrected", "worldpop1km"),
+                      labels = c("Official", "GlobPop", "LandScan", "WorldPop 100m", "WorldPop 100m bias-corrected", "WorldPop 1km"))
+
+cols <- c("black", as.character(graf_palettes$kelly[1:5]))
+
+
+ggplot(agg[agg$fs_uid == "ANyiQnCJ1JJ",]) +
+  geom_line(aes(x = year, y = value, col = dataset)) +
+  ylab("Population") + xlab("Year") +
+  labs(color = "Dataset", title = "Taolagnaro–Bazaribe") +
+  theme_bw() +
+  scale_color_manual(values = cols)
+
+
+ggplot(agg[agg$fs_uid == "dZETRPZhGJP",]) +
+  geom_line(aes(x = year, y = value, col = dataset)) +
+  ylab("Population") + xlab("Year") +
+  labs(color = "Dataset", title = "Anjozorobe") +
+  theme_bw() +
+  scale_color_manual(values = cols)
+
+
+ggplot(agg[agg$fs_uid == "As7NgbiFb4U",]) +
+  geom_line(aes(x = year, y = value, col = dataset)) +
+  ylab("Population") + xlab("Year") +
+  labs(color = "Dataset", title = "Amparafaravola") +
+  theme_bw() +
+  scale_color_manual(values = cols)
+
 
