@@ -34,17 +34,17 @@ def download_era_sl(variable, year):
         ],
         "data_format": "grib",
         "download_format": "unarchived",
-        # "area": [-11.9, 43, -26, 51]  # Madagascar
-        "area": [31, 80, 26, 89]  # Nepal
+        "area": [-11.9, 43, -26, 51]  # Madagascar
+        # "area": [31, 80, 26, 89]  # Nepal
     }
 
     client = cdsapi.Client()
 
-    filename = f'nepal/era5_sl_{variable}_{year}.grib'
+    filename = f'madagascar/era5_sl_{variable}_{year}.grib'
     client.retrieve(dataset, request, filename)
 
 
-variable = "volumetric_soil_water_layer_1"
+variable = "surface_solar_radiation_downwards"
 # volumetric_soil_water_layer_1, total_precipitation, surface_solar_radiation_downwards, 2m_temperature, 2m_dewpoint_temperature
 
 years = list(range(2015, 2024, 1)) # last year doesn't count
